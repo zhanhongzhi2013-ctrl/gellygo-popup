@@ -13,6 +13,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
@@ -76,6 +77,7 @@ async function listSubscribers() {
 /* ---------------- App ---------------- */
 const app = express();
 app.use(express.json({ limit: '256kb' }));
+app.use(express.urlencoded({ extended: false }));
 
 function cors(res) {
   res.set('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
@@ -84,14 +86,31 @@ function cors(res) {
 }
 app.options(/^\/api\/(config|subscribe)$/, (req, res) => { cors(res); res.sendStatus(204); });
 
-/* Basic Auth 保护后台 */
+/* 后台鉴权:登录页 + Cookie(可内嵌 Shopify 后台),兼容 Basic Auth */
+const AUTH_TOKEN = () => crypto.createHash('sha256').update('ggp|' + ADMIN_PASSWORD).digest('hex');
+function frameHeaders(res) {
+  res.set('Content-Security-Policy', 'frame-ancestors https://admin.shopify.com https://*.shopify.com https://*.myshopify.com');
+}
+function hasAuth(req) {
+  const h = req.headers.authorization || '';
+  if (h.startsWith('Basic ') && Buffer.from(h.slice(6), 'base64').toString().split(':').slice(1).join(':') === ADMIN_PASSWORD) return true;
+  const m = /(?:^|;\s*)ggp_auth=([a-f0-9]{64})/.exec(req.headers.cookie || '');
+  return !!(m && m[1] === AUTH_TOKEN());
+}
 function adminAuth(req, res, next) {
   if (!ADMIN_PASSWORD) return res.status(500).send('请先在环境变量设置 ADMIN_PASSWORD');
-  const h = req.headers.authorization || '';
-  const pass = h.startsWith('Basic ') ? Buffer.from(h.slice(6), 'base64').toString().split(':').slice(1).join(':') : '';
-  if (pass === ADMIN_PASSWORD) return next();
-  res.set('WWW-Authenticate', 'Basic realm="GellyGo Popup Admin"');
-  res.status(401).send('Auth required');
+  frameHeaders(res);
+  if (hasAuth(req)) return next();
+  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'auth' });
+  res.status(401).type('html').send(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GellyGo Popup Admin</title></head>
+<body style="background:#0a0a0a;color:#f2efe9;font-family:Arial;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">
+<form method="POST" action="admin/login" style="background:#131313;border:2px solid #c8ff00;padding:36px;width:320px;text-align:center">
+<div style="font-family:'Arial Black',Arial;text-transform:uppercase;font-size:18px;margin-bottom:4px">GELLYGO <span style="color:#c8ff00">POPUP</span></div>
+<div style="font-family:'Courier New',monospace;font-size:11px;opacity:.6;margin-bottom:20px">// ADMIN ACCESS</div>
+<input type="password" name="password" placeholder="后台密码" autofocus style="width:100%;padding:12px;background:#1a1a1a;color:#f2efe9;border:1px solid #3a3a3a;font-family:'Courier New',monospace;box-sizing:border-box">
+<button type="submit" style="width:100%;padding:12px;margin-top:12px;background:#c8ff00;color:#0a0a0a;border:none;font-family:'Arial Black',Arial;text-transform:uppercase;cursor:pointer">进入后台</button>
+${req.query.e ? '<div style="color:#ff6b6b;font-family:monospace;font-size:12px;margin-top:10px">密码不对,再试一次</div>' : ''}
+</form></body></html>`);
 }
 
 /* ---- 公开接口 ---- */
@@ -130,7 +149,15 @@ app.get('/preview', async (req, res) => {
 });
 
 /* ---- 管理接口 ---- */
-app.get('/admin', adminAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
+app.post('/admin/login', (req, res) => {
+  frameHeaders(res);
+  if (String(req.body.password || '') === ADMIN_PASSWORD && ADMIN_PASSWORD) {
+    res.set('Set-Cookie', 'ggp_auth=' + AUTH_TOKEN() + '; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=2592000');
+    return res.redirect('/admin');
+  }
+  res.redirect('/admin?e=1');
+});
+app.get('/admin', adminAuth, (req, res) => { frameHeaders(res); res.sendFile(path.join(__dirname, 'public', 'admin.html')); });
 app.get('/api/admin/config', adminAuth, async (req, res) => res.json(await getConfig()));
 app.put('/api/admin/config', adminAuth, async (req, res) => {
   const cfg = req.body;
