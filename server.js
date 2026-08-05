@@ -23,7 +23,7 @@ const SHOP_DOMAIN = process.env.SHOP_DOMAIN || '';
 /* ---------------- 默认配置(首次启动写入库) ---------------- */
 const DEFAULT_COLORS = { bg: '#0d0d0d', ink: '#f2efe9', vis: '#c8ff00', visInk: '#0a0a0a', tag: '#0a0a0a', accent: '#0a0a0a', accent2: '#c8ff00', field: '#161616', fieldBd: '#3a3a3a', cta: '#c8ff00', ctaInk: '#0a0a0a' };
 const DEFAULT_CONFIG = {
-  settings: { activeTemplate: 'drop', delay: 4, exitIntent: true, frequencyDays: 7, collectPhone: true, shopDomain: SHOP_DOMAIN },
+  settings: { activeTemplate: 'drop', delay: 8, scrollPercent: 35, exitIntent: true, frequencyDays: 7, collectPhone: true, teaser: true, teaserText: '10% OFF', shopDomain: SHOP_DOMAIN },
   templates: [
     { id: 'drop', name: '01 街头默认 Drop', tag: '// GELLYGO — DROP LIST', big: 'FIRST<br>DIBS.<br><em>10% OFF.</em>', kicker: 'JOIN THE UNIT', title: 'Early access to every drop', sub: 'Restock alerts, numbered drops before anyone else, and 10% off your first cop. Free shipping is already on us.', cta: 'UNLOCK 10% OFF', no: 'Nah, I pay full price', code: 'JOINTHEUNIT10', cd: false, cdEnd: '', deco: '01', colors: { ...DEFAULT_COLORS } },
     { id: 'hallo', name: '02 万圣节 Halloween', tag: '// NIGHT OPS — OCT 31', big: 'NIGHT<br>OPS<br><em>DROP.</em>', kicker: 'HALLOWEEN EXCLUSIVE', title: 'Trick, treat, 15% off', sub: 'Glow-in-the-dark gels, blackout colorways, one night only. Sign up for the Night Ops drop list before it vanishes.', cta: 'CLAIM THE TREAT', no: 'Too spooky for me', code: 'NIGHTOPS15', cd: false, cdEnd: '', deco: '🎃', colors: { bg: '#120a18', ink: '#f4ead9', vis: 'linear-gradient(160deg,#1a0f24,#2d1038)', visInk: '#ff7a1a', tag: '#b98aff', accent: '#b98aff', accent2: '#ff7a1a', field: '#1c1226', fieldBd: '#41305a', cta: '#ff7a1a', ctaInk: '#120a18' } },

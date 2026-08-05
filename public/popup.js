@@ -17,11 +17,12 @@
 
   function init(cfg) {
     var s = cfg.settings, t = cfg.template, c = t.colors || {};
+    var capped = false; /* 频次期内:不自动弹,但显示浮标 */
     if (!PREVIEW) {
       try {
-        if (localStorage.getItem(KEY_DONE)) return;
+        if (localStorage.getItem(KEY_DONE)) return; /* 已订阅:什么都不显示 */
         var dis = parseInt(localStorage.getItem(KEY_DISMISS) || '0', 10);
-        if (dis && Date.now() - dis < (s.frequencyDays || 7) * 864e5) return;
+        if (dis && Date.now() - dis < (s.frequencyDays || 7) * 864e5) capped = true;
       } catch (e) {}
     }
 
@@ -63,7 +64,17 @@
       '.ggp-cd div{background:rgba(0,0,0,.35);border:1px solid ' + c.fieldBd + ';padding:8px 0;flex:1;text-align:center}' +
       '.ggp-cd b{display:block;font-family:Arial Black,Arial,sans-serif;font-size:20px;color:' + c.ink + '}' +
       '.ggp-cd span{font-family:Courier New,monospace;font-size:9px;text-transform:uppercase;opacity:.6}' +
-      '@media(max-width:640px){.ggp{grid-template-columns:1fr;max-width:420px}.ggp-vis{min-height:130px;padding:20px}.ggp-big{font-size:26px}}';
+      '@media(max-width:640px){.ggp{grid-template-columns:1fr;max-width:420px}.ggp-vis{min-height:130px;padding:20px}.ggp-big{font-size:26px}}' +
+      /* 枪形浮标(点击重新打开弹窗) */
+      '.ggp-teaser{position:fixed;left:16px;bottom:16px;z-index:2147482999;display:none;align-items:center;gap:0;cursor:pointer;font-family:Arial Black,Arial,sans-serif;filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));transition:transform .15s}' +
+      '.ggp-teaser:hover{transform:translateY(-2px)}' +
+      '.ggp-teaser.ggp-on{display:flex;animation:ggpTease .4s}' +
+      '@keyframes ggpTease{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}' +
+      '.ggp-teaser-icon{width:58px;height:58px;border-radius:50%;background:' + c.bg + ';border:2px solid ' + c.accent2 + ';display:flex;align-items:center;justify-content:center;position:relative;animation:ggpPulse 2.4s infinite}' +
+      '@keyframes ggpPulse{0%,100%{box-shadow:0 0 0 0 ' + c.accent2 + '66}50%{box-shadow:0 0 0 9px transparent}}' +
+      '.ggp-teaser-icon svg{width:36px;height:22px;display:block}' +
+      '.ggp-teaser-tag{background:' + c.accent2 + ';color:' + c.bg + ';font-size:11px;letter-spacing:.08em;padding:6px 10px;margin-left:-6px;text-transform:uppercase;white-space:nowrap;border-radius:2px}' +
+      '@media(max-width:640px){.ggp-teaser{left:10px;bottom:10px}.ggp-teaser-icon{width:48px;height:48px}.ggp-teaser-icon svg{width:30px;height:18px}}';
     var styleEl = document.createElement('style');
     styleEl.textContent = css;
     document.head.appendChild(styleEl);
@@ -101,17 +112,58 @@
     ov.querySelector('.ggp-dismiss').textContent = t.no || 'Not now';
     ov.querySelector('.ggp-code').textContent = t.code || '';
 
+    /* 枪形浮标:圆形按钮 + gel blaster 剪影(含合规橙色枪口) + 优惠标签 */
+    var teaserOn = s.teaser !== false;
+    var teaser = null;
+    if (teaserOn) {
+      teaser = document.createElement('div');
+      teaser.className = 'ggp-teaser';
+      teaser.setAttribute('role', 'button');
+      teaser.setAttribute('aria-label', 'Open signup offer');
+      teaser.innerHTML =
+        '<div class="ggp-teaser-icon">' +
+          '<svg viewBox="0 0 64 34" xmlns="http://www.w3.org/2000/svg">' +
+            '<path fill="' + (c.accent2 || '#c8ff00') + '" d="M2 15 L10 12 L12 15 L20 15 L20 11 L24 11 L24 15 L52 15 L52 12 L56 12 L56 15 L58 15 L58 20 L44 20 L42 27 L35 27 L37 20 L30 20 L27 30 L19 30 L22 20 L12 20 L10 18 L2 18 Z"/>' +
+            '<rect x="58" y="15" width="4" height="5" fill="#ff7a1a"/>' +
+            '<rect x="24" y="7" width="10" height="3" fill="' + (c.accent2 || '#c8ff00') + '"/>' +
+          '</svg>' +
+        '</div>' +
+        '<div class="ggp-teaser-tag">' + ((s.teaserText || '10% OFF').replace(/[<>]/g, '')) + '</div>';
+      document.body.appendChild(teaser);
+    }
+    function showTeaser() { if (teaser && !PREVIEW) teaser.classList.add('ggp-on'); }
+    function hideTeaser() { if (teaser) teaser.classList.remove('ggp-on'); }
+
     var pop = ov.querySelector('.ggp'), form = ov.querySelector('.ggp-form'), shown = false;
-    function open() { if (shown) return; shown = true; ov.classList.add('ggp-open'); document.documentElement.style.overflow = 'hidden'; }
+    var openedAt = Date.now();
+    function open(force) { if (shown && !force) return; shown = true; hideTeaser(); ov.classList.add('ggp-open'); document.documentElement.style.overflow = 'hidden'; }
     function close(remember) {
       ov.classList.remove('ggp-open'); document.documentElement.style.overflow = '';
-      if (remember && !PREVIEW) { try { localStorage.setItem(KEY_DISMISS, String(Date.now())); } catch (e) {} }
+      if (remember && !PREVIEW) {
+        try { localStorage.setItem(KEY_DISMISS, String(Date.now())); } catch (e) {}
+        showTeaser(); /* 关掉弹窗后浮标接力,改主意随时点开 */
+      }
     }
+    if (teaser) teaser.addEventListener('click', function () { open(true); ov.classList.add('ggp-open'); });
 
+    /* 触发策略(据 2026 转化数据):延时 8s 或 滚动 35%(先到先弹)+ 退出意图;
+       频次期内不自动弹,只显示浮标 */
     if (PREVIEW) { open(); }
+    else if (capped) { showTeaser(); }
     else {
-      setTimeout(open, Math.max(0, s.delay || 0) * 1000);
-      if (s.exitIntent) document.addEventListener('mouseout', function (e) { if (!e.relatedTarget && e.clientY <= 0) open(); });
+      setTimeout(function () { open(); }, Math.max(0, s.delay == null ? 8 : s.delay) * 1000);
+      var sp = s.scrollPercent == null ? 35 : s.scrollPercent;
+      if (sp > 0) {
+        var onScroll = function () {
+          var h = document.documentElement;
+          var max = h.scrollHeight - h.clientHeight;
+          if (max > 0 && (h.scrollTop / max) * 100 >= sp) { open(); window.removeEventListener('scroll', onScroll); }
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+      }
+      if (s.exitIntent) document.addEventListener('mouseout', function (e) {
+        if (!e.relatedTarget && e.clientY <= 0 && Date.now() - openedAt > 3000) open();
+      });
     }
     ov.querySelector('.ggp-close').addEventListener('click', function () { close(true); });
     ov.querySelector('.ggp-dismiss').addEventListener('click', function () { close(true); });
@@ -166,6 +218,7 @@
 
       Promise.all([p1, p2]).then(function () {
         pop.classList.add('ggp-ok');
+        if (teaser) { teaser.remove(); teaser = null; } /* 已订阅,浮标退场 */
         if (!PREVIEW) { try { localStorage.setItem(KEY_DONE, '1'); } catch (e2) {} }
       });
     });

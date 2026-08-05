@@ -119,10 +119,13 @@
 <div class="pane" id="p-set">
   <div class="set">
     <label>当前生效模板</label><select id="s-active"></select>
-    <label>延时弹出(秒)</label><input type="number" id="s-delay" min="0" max="60">
+    <label>延时弹出(秒,建议 8-10)</label><input type="number" id="s-delay" min="0" max="60">
+    <label>滚动触发(页面滚动 %,0=关闭,建议 35)</label><input type="number" id="s-scroll" min="0" max="100">
     <label>关闭后 N 天不再弹</label><input type="number" id="s-freq" min="1" max="60">
     <div class="chk"><input type="checkbox" id="s-exit"><span>退出意图触发(桌面端)</span></div>
     <div class="chk"><input type="checkbox" id="s-phone"><span>显示手机号(选填)</span></div>
+    <div class="chk"><input type="checkbox" id="s-teaser"><span>枪形浮标(弹窗关闭后显示,点击可重新打开)</span></div>
+    <label>浮标标签文字</label><input type="text" id="s-teasertext" placeholder="10% OFF">
     <label>Shopify 店铺域名(双写客户列表用)</label><input type="text" id="s-shop" placeholder="https://gellygo.com">
     <div style="margin-top:16px"><button class="b p" onclick="saveSettings()">保存设置</button></div>
   </div>
@@ -222,16 +225,23 @@ function preview(id) { const f = $('pv'); f.style.display = 'block'; f.src = '/p
 function renderSettings() {
   const s = CFG.settings;
   $('s-active').innerHTML = CFG.templates.map(t => '<option value="' + esc(t.id) + '"' + (t.id === s.activeTemplate ? ' selected' : '') + '>' + esc(t.name) + '</option>').join('');
-  $('s-delay').value = s.delay; $('s-freq').value = s.frequencyDays;
+  $('s-delay').value = s.delay == null ? 8 : s.delay;
+  $('s-scroll').value = s.scrollPercent == null ? 35 : s.scrollPercent;
+  $('s-freq').value = s.frequencyDays;
   $('s-exit').checked = !!s.exitIntent; $('s-phone').checked = !!s.collectPhone;
+  $('s-teaser').checked = s.teaser !== false;
+  $('s-teasertext').value = s.teaserText || '10% OFF';
   $('s-shop').value = s.shopDomain || '';
 }
 async function saveSettings() {
   const s = CFG.settings;
   s.activeTemplate = $('s-active').value;
-  s.delay = parseInt($('s-delay').value || '4', 10);
+  s.delay = parseInt($('s-delay').value || '8', 10);
+  s.scrollPercent = parseInt($('s-scroll').value || '35', 10);
   s.frequencyDays = parseInt($('s-freq').value || '7', 10);
   s.exitIntent = $('s-exit').checked; s.collectPhone = $('s-phone').checked;
+  s.teaser = $('s-teaser').checked;
+  s.teaserText = $('s-teasertext').value.trim() || '10% OFF';
   s.shopDomain = $('s-shop').value.trim();
   await push(); renderTpls(); toast();
 }
