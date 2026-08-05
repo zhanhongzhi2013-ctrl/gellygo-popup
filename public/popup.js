@@ -122,10 +122,17 @@
       teaser.setAttribute('aria-label', 'Open signup offer');
       teaser.innerHTML =
         '<div class="ggp-teaser-icon">' +
-          '<svg viewBox="0 0 64 34" xmlns="http://www.w3.org/2000/svg">' +
-            '<path fill="' + (c.accent2 || '#c8ff00') + '" d="M2 15 L10 12 L12 15 L20 15 L20 11 L24 11 L24 15 L52 15 L52 12 L56 12 L56 15 L58 15 L58 20 L44 20 L42 27 L35 27 L37 20 L30 20 L27 30 L19 30 L22 20 L12 20 L10 18 L2 18 Z"/>' +
-            '<rect x="58" y="15" width="4" height="5" fill="#ff7a1a"/>' +
-            '<rect x="24" y="7" width="10" height="3" fill="' + (c.accent2 || '#c8ff00') + '"/>' +
+          '<svg viewBox="0 0 96 48" xmlns="http://www.w3.org/2000/svg">' +
+            '<g fill="' + (c.accent2 || '#c8ff00') + '">' +
+              '<path d="M28 16 L8 13 L2 17 L2 27 L12 27 L28 26 Z"/>' +
+              '<rect x="28" y="15" width="40" height="11"/>' +
+              '<rect x="33" y="10" width="9" height="5"/>' +
+              '<rect x="68" y="18" width="20" height="4"/>' +
+              '<rect x="74" y="13" width="3" height="5"/>' +
+              '<path d="M40 26 L47 26 L42 37 L35 37 Z"/>' +
+              '<path d="M52 26 L66 26 L60 41 L48 39 Z"/>' +
+            '</g>' +
+            '<rect x="88" y="17" width="6" height="6" fill="#ff7a1a"/>' +
           '</svg>' +
         '</div>' +
         '<div class="ggp-teaser-tag">' + ((s.teaserText || '10% OFF').replace(/[<>]/g, '')) + '</div>';
