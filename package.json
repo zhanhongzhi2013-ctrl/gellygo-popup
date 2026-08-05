@@ -1,0 +1,11 @@
+{
+  "name": "gellygo-popup-railway",
+  "private": true,
+  "type": "commonjs",
+  "engines": { "node": ">=18" },
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.19.0",
+    "pg": "^8.12.0"
+  }
+}

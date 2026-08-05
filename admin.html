@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GellyGo Popup 管理后台</title>
+<style>
+  :root{--acid:#c8ff00;--ink:#0a0a0a;--paper:#f2efe9;--line:#2a2a2a;--mono:'Courier New',monospace;--head:'Arial Black',Arial,sans-serif}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0a0a0a;color:var(--paper);font-family:Arial,sans-serif;padding-bottom:80px}
+  header{display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:2px solid var(--acid)}
+  header h1{font-family:var(--head);font-size:18px;text-transform:uppercase}
+  header h1 span{color:var(--acid)}
+  .tabs{display:flex;gap:8px;padding:16px 24px 0}
+  .tabs button{font-family:var(--mono);font-size:13px;background:#1c1c1c;color:var(--paper);border:1px solid #3a3a3a;padding:10px 18px;cursor:pointer;text-transform:uppercase}
+  .tabs button.on{background:var(--acid);color:var(--ink);border-color:var(--acid);font-weight:bold}
+  .pane{display:none;padding:20px 24px}
+  .pane.on{display:block}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+  .tcard{background:#131313;border:1px solid #2e2e2e;padding:16px}
+  .tcard.active{border-color:var(--acid)}
+  .tcard .sw{display:flex;gap:4px;margin:10px 0}
+  .tcard .sw i{width:22px;height:22px;display:inline-block;border:1px solid #444}
+  .tcard h3{font-family:var(--head);font-size:14px;text-transform:uppercase}
+  .tcard .id{font-family:var(--mono);font-size:11px;opacity:.5}
+  .tcard .row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  button.b{font-family:var(--mono);font-size:12px;padding:8px 12px;cursor:pointer;border:1px solid #3a3a3a;background:#1c1c1c;color:var(--paper);text-transform:uppercase}
+  button.b.p{background:var(--acid);color:var(--ink);border-color:var(--acid);font-weight:bold}
+  button.b.d{border-color:#5a2020;color:#ff8a8a}
+  .badge{font-family:var(--mono);font-size:10px;background:var(--acid);color:var(--ink);padding:2px 8px;font-weight:bold}
+  form.editor{background:#131313;border:1px solid var(--acid);padding:20px;margin-top:16px;display:none}
+  form.editor.on{display:block}
+  .f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .f3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  label{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.7;display:block;margin:10px 0 4px}
+  input[type=text],textarea,select,input[type=number]{width:100%;padding:10px;background:#1a1a1a;color:var(--paper);border:1px solid #3a3a3a;font-family:var(--mono);font-size:13px}
+  input[type=color]{width:100%;height:38px;border:1px solid #3a3a3a;background:#1a1a1a;padding:2px}
+  textarea{min-height:60px}
+  .set{background:#131313;border:1px solid #2e2e2e;padding:20px;max-width:640px}
+  .chk{display:flex;align-items:center;gap:8px;margin:10px 0;font-family:var(--mono);font-size:13px}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+  th,td{border:1px solid #2e2e2e;padding:8px 10px;text-align:left}
+  th{background:#161616;text-transform:uppercase;font-size:11px;color:var(--acid)}
+  .stats{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+  .stat{background:#131313;border:1px solid #2e2e2e;padding:14px 20px;min-width:130px}
+  .stat b{font-family:var(--head);font-size:26px;color:var(--acid);display:block}
+  .stat span{font-family:var(--mono);font-size:11px;text-transform:uppercase;opacity:.6}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--acid);color:var(--ink);font-family:var(--mono);font-weight:bold;padding:12px 24px;display:none;z-index:99}
+  iframe.pv{width:100%;height:560px;border:1px solid #2e2e2e;background:#333;margin-top:16px;display:none}
+</style>
+</head>
+<body>
+<header><h1>GELLYGO <span>POPUP</span> 管理后台</h1><span style="font-family:var(--mono);font-size:11px;opacity:.6">改完即时生效 · 无需重新部署</span></header>
+
+<div class="tabs">
+  <button class="on" data-p="tpl">模板</button>
+  <button data-p="set">触发设置</button>
+  <button data-p="sub">订阅数据</button>
+</div>
+
+<!-- 模板 -->
+<div class="pane on" id="p-tpl">
+  <div style="margin-bottom:14px;display:flex;gap:8px">
+    <button class="b p" onclick="newTpl()">+ 新建模板</button>
+  </div>
+  <div class="grid" id="tplGrid"></div>
+
+  <form class="editor" id="editor" onsubmit="return saveTpl(event)">
+    <h3 style="font-family:var(--head);text-transform:uppercase;margin-bottom:6px">编辑模板 <span id="ed-name" style="color:var(--acid)"></span></h3>
+    <input type="hidden" id="ed-id">
+    <div class="f2">
+      <div><label>模板名称(后台显示)</label><input type="text" id="ed-nm"></div>
+      <div><label>折扣码</label><input type="text" id="ed-code"></div>
+    </div>
+    <div class="f2">
+      <div><label>左侧标签行 tag</label><input type="text" id="ed-tag"></div>
+      <div><label>左侧大字 big(可用 &lt;br&gt; 和 &lt;em&gt;)</label><input type="text" id="ed-big"></div>
+    </div>
+    <div class="f2">
+      <div><label>小标题 kicker</label><input type="text" id="ed-kicker"></div>
+      <div><label>主标题 title</label><input type="text" id="ed-title"></div>
+    </div>
+    <label>描述 sub</label><textarea id="ed-sub"></textarea>
+    <div class="f3">
+      <div><label>按钮 cta</label><input type="text" id="ed-cta"></div>
+      <div><label>拒绝链接文字</label><input type="text" id="ed-no"></div>
+      <div><label>装饰字/emoji</label><input type="text" id="ed-deco"></div>
+    </div>
+    <div class="f2">
+      <div class="chk" style="margin-top:24px"><input type="checkbox" id="ed-cd"><span>显示倒计时</span></div>
+      <div><label>倒计时截止(如 2026-11-30 23:59)</label><input type="text" id="ed-cdend"></div>
+    </div>
+    <label style="margin-top:16px;color:var(--acid)">配色</label>
+    <div class="f3">
+      <div><label>弹窗背景</label><input type="color" id="c-bg"></div>
+      <div><label>文字</label><input type="color" id="c-ink"></div>
+      <div><label>强调色</label><input type="color" id="c-accent2"></div>
+      <div><label>左侧色块底色</label><input type="color" id="c-visc"></div>
+      <div><label>左侧大字色</label><input type="color" id="c-visInk"></div>
+      <div><label>大字 em 强调色</label><input type="color" id="c-accent"></div>
+      <div><label>标签行文字</label><input type="color" id="c-tag"></div>
+      <div><label>输入框背景</label><input type="color" id="c-field"></div>
+      <div><label>输入框边框</label><input type="color" id="c-fieldBd"></div>
+      <div><label>按钮背景</label><input type="color" id="c-cta"></div>
+      <div><label>按钮文字</label><input type="color" id="c-ctaInk"></div>
+    </div>
+    <label>左侧色块高级值(渐变等 CSS,填了会覆盖上面的底色)</label>
+    <input type="text" id="c-vis" placeholder="如 linear-gradient(160deg,#1a0f24,#2d1038)">
+    <div class="row" style="margin-top:16px;display:flex;gap:8px">
+      <button class="b p" type="submit">保存模板</button>
+      <button class="b" type="button" onclick="preview(document.getElementById('ed-id').value)">预览</button>
+      <button class="b" type="button" onclick="document.getElementById('editor').classList.remove('on')">收起</button>
+    </div>
+  </form>
+  <iframe class="pv" id="pv"></iframe>
+</div>
+
+<!-- 设置 -->
+<div class="pane" id="p-set">
+  <div class="set">
+    <label>当前生效模板</label><select id="s-active"></select>
+    <label>延时弹出(秒)</label><input type="number" id="s-delay" min="0" max="60">
+    <label>关闭后 N 天不再弹</label><input type="number" id="s-freq" min="1" max="60">
+    <div class="chk"><input type="checkbox" id="s-exit"><span>退出意图触发(桌面端)</span></div>
+    <div class="chk"><input type="checkbox" id="s-phone"><span>显示手机号(选填)</span></div>
+    <label>Shopify 店铺域名(双写客户列表用)</label><input type="text" id="s-shop" placeholder="https://gellygo.com">
+    <div style="margin-top:16px"><button class="b p" onclick="saveSettings()">保存设置</button></div>
+  </div>
+</div>
+
+<!-- 订阅数据 -->
+<div class="pane" id="p-sub">
+  <div class="stats" id="stats"></div>
+  <div style="margin-bottom:12px"><a href="/api/admin/subscribers.csv"><button class="b p">导出 CSV</button></a>
+  <button class="b" onclick="loadSubs()">刷新</button></div>
+  <table id="subTable"><thead><tr><th>邮箱</th><th>手机号</th><th>来源模板</th><th>时间</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div class="toast" id="toast">已保存 ✓</div>
+
+<script>
+let CFG = null;
+const $ = id => document.getElementById(id);
+
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); $('p-' + b.dataset.p).classList.add('on');
+  if (b.dataset.p === 'sub') loadSubs();
+});
+
+function toast(msg) { const t = $('toast'); t.textContent = msg || '已保存 ✓'; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 1800); }
+
+async function load() {
+  CFG = await (await fetch('/api/admin/config')).json();
+  renderTpls(); renderSettings();
+}
+function renderTpls() {
+  const g = $('tplGrid'); g.innerHTML = '';
+  CFG.templates.forEach(t => {
+    const c = t.colors || {};
+    const div = document.createElement('div');
+    div.className = 'tcard' + (t.id === CFG.settings.activeTemplate ? ' active' : '');
+    div.innerHTML = '<h3>' + esc(t.name) + ' ' + (t.id === CFG.settings.activeTemplate ? '<span class="badge">生效中</span>' : '') + '</h3>' +
+      '<div class="id">id: ' + esc(t.id) + ' · 码: ' + esc(t.code) + '</div>' +
+      '<div class="sw">' + ['bg','vis','accent2','cta','ink'].map(k => '<i style="background:' + esc(String(c[k]||'#000').split('(')[0].startsWith('linear')||String(c[k]||'').startsWith('repeating')?'#555':c[k]) + '"></i>').join('') + '</div>' +
+      '<div class="row"></div>';
+    const row = div.querySelector('.row');
+    row.append(btn('启用', 'b p', async () => { CFG.settings.activeTemplate = t.id; await push(); renderTpls(); }));
+    row.append(btn('编辑', 'b', () => editTpl(t.id)));
+    row.append(btn('预览', 'b', () => preview(t.id)));
+    if (t.id !== CFG.settings.activeTemplate) row.append(btn('删除', 'b d', async () => { if (confirm('删除模板 ' + t.name + '?')) { CFG.templates = CFG.templates.filter(x => x.id !== t.id); await push(); renderTpls(); renderSettings(); } }));
+    g.append(div);
+  });
+}
+function btn(txt, cls, fn) { const b = document.createElement('button'); b.textContent = txt; b.className = cls; b.type = 'button'; b.onclick = fn; return b; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+
+function editTpl(id) {
+  const t = CFG.templates.find(x => x.id === id); if (!t) return;
+  $('ed-id').value = t.id; $('ed-name').textContent = t.name;
+  $('ed-nm').value = t.name; $('ed-code').value = t.code || '';
+  $('ed-tag').value = t.tag || ''; $('ed-big').value = t.big || '';
+  $('ed-kicker').value = t.kicker || ''; $('ed-title').value = t.title || '';
+  $('ed-sub').value = t.sub || ''; $('ed-cta').value = t.cta || '';
+  $('ed-no').value = t.no || ''; $('ed-deco').value = t.deco || '';
+  $('ed-cd').checked = !!t.cd; $('ed-cdend').value = t.cdEnd || '';
+  const c = t.colors || {};
+  const hex = v => /^#[0-9a-fA-F]{6}$/.test(v) ? v : '#000000';
+  $('c-bg').value = hex(c.bg); $('c-ink').value = hex(c.ink); $('c-accent2').value = hex(c.accent2);
+  $('c-visc').value = hex(c.vis); $('c-visInk').value = hex(c.visInk); $('c-accent').value = hex(c.accent);
+  $('c-tag').value = hex(c.tag); $('c-field').value = hex(c.field); $('c-fieldBd').value = hex(c.fieldBd);
+  $('c-cta').value = hex(c.cta); $('c-ctaInk').value = hex(c.ctaInk);
+  $('c-vis').value = /^#/.test(c.vis || '') ? '' : (c.vis || '');
+  $('editor').classList.add('on'); $('editor').scrollIntoView({ behavior: 'smooth' });
+}
+async function saveTpl(e) {
+  e.preventDefault();
+  const t = CFG.templates.find(x => x.id === $('ed-id').value); if (!t) return false;
+  t.name = $('ed-nm').value; t.code = $('ed-code').value.trim();
+  t.tag = $('ed-tag').value; t.big = $('ed-big').value;
+  t.kicker = $('ed-kicker').value; t.title = $('ed-title').value;
+  t.sub = $('ed-sub').value; t.cta = $('ed-cta').value;
+  t.no = $('ed-no').value; t.deco = $('ed-deco').value;
+  t.cd = $('ed-cd').checked; t.cdEnd = $('ed-cdend').value.trim();
+  t.colors = {
+    bg: $('c-bg').value, ink: $('c-ink').value, accent2: $('c-accent2').value,
+    vis: $('c-vis').value.trim() || $('c-visc').value, visInk: $('c-visInk').value,
+    accent: $('c-accent').value, tag: $('c-tag').value, field: $('c-field').value,
+    fieldBd: $('c-fieldBd').value, cta: $('c-cta').value, ctaInk: $('c-ctaInk').value
+  };
+  await push(); renderTpls(); renderSettings(); toast();
+  return false;
+}
+async function newTpl() {
+  const id = 't' + Date.now().toString(36);
+  CFG.templates.push({ id, name: '新模板 ' + (CFG.templates.length + 1), tag: '// GELLYGO', big: 'NEW<br>DROP<br><em>SOON.</em>', kicker: 'JOIN THE UNIT', title: 'Get on the list', sub: 'Early access to every drop, restock alerts, and a welcome code.', cta: 'SIGN ME UP', no: 'Not now', code: 'JOINTHEUNIT10', cd: false, cdEnd: '', deco: '★', colors: { bg: '#0d0d0d', ink: '#f2efe9', vis: '#c8ff00', visInk: '#0a0a0a', tag: '#0a0a0a', accent: '#0a0a0a', accent2: '#c8ff00', field: '#161616', fieldBd: '#3a3a3a', cta: '#c8ff00', ctaInk: '#0a0a0a' } });
+  await push(); renderTpls(); renderSettings(); editTpl(id);
+}
+function preview(id) { const f = $('pv'); f.style.display = 'block'; f.src = '/preview?t=' + encodeURIComponent(id) + '&_=' + Date.now(); f.scrollIntoView({ behavior: 'smooth' }); }
+
+function renderSettings() {
+  const s = CFG.settings;
+  $('s-active').innerHTML = CFG.templates.map(t => '<option value="' + esc(t.id) + '"' + (t.id === s.activeTemplate ? ' selected' : '') + '>' + esc(t.name) + '</option>').join('');
+  $('s-delay').value = s.delay; $('s-freq').value = s.frequencyDays;
+  $('s-exit').checked = !!s.exitIntent; $('s-phone').checked = !!s.collectPhone;
+  $('s-shop').value = s.shopDomain || '';
+}
+async function saveSettings() {
+  const s = CFG.settings;
+  s.activeTemplate = $('s-active').value;
+  s.delay = parseInt($('s-delay').value || '4', 10);
+  s.frequencyDays = parseInt($('s-freq').value || '7', 10);
+  s.exitIntent = $('s-exit').checked; s.collectPhone = $('s-phone').checked;
+  s.shopDomain = $('s-shop').value.trim();
+  await push(); renderTpls(); toast();
+}
+async function push() {
+  const r = await fetch('/api/admin/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(CFG) });
+  if (!r.ok) toast('保存失败');
+}
+async function loadSubs() {
+  const rows = await (await fetch('/api/admin/subscribers')).json();
+  const byTpl = {};
+  rows.forEach(r => byTpl[r.template || '?'] = (byTpl[r.template || '?'] || 0) + 1);
+  $('stats').innerHTML = '<div class="stat"><b>' + rows.length + '</b><span>总订阅</span></div>' +
+    '<div class="stat"><b>' + rows.filter(r => r.phone).length + '</b><span>留手机号</span></div>' +
+    Object.entries(byTpl).map(([k, v]) => '<div class="stat"><b>' + v + '</b><span>' + esc(k) + '</span></div>').join('');
+  $('subTable').querySelector('tbody').innerHTML = rows.map(r =>
+    '<tr><td>' + esc(r.email) + '</td><td>' + esc(r.phone) + '</td><td>' + esc(r.template) + '</td><td>' + esc(String(r.created_at).replace('T', ' ').slice(0, 19)) + '</td></tr>').join('');
+}
+load();
+</script>
+</body>
+</html>
