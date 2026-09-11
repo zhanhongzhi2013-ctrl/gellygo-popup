@@ -58,8 +58,11 @@
       '.ggp.ggp-ok .ggp-done{display:block}' +
       '.ggp-chk{font-size:34px;color:' + c.accent2 + '}' +
       '.ggp-done h3{font-family:Arial Black,Arial,sans-serif;text-transform:uppercase;font-size:20px;margin:8px 0 14px;color:' + c.ink + '}' +
-      '.ggp-code{display:inline-block;font-family:Courier New,monospace;font-size:20px;font-weight:bold;letter-spacing:.12em;border:2px dashed ' + c.accent2 + ';padding:12px 22px;margin-bottom:12px;cursor:pointer;color:' + c.ink + '}' +
+      '.ggp-code{display:inline-block;font-family:Courier New,monospace;font-size:20px;font-weight:bold;letter-spacing:.12em;border:2px dashed ' + c.accent2 + ';padding:12px 22px;margin-bottom:12px;cursor:pointer;color:' + c.ink + ';transition:all .15s}' +
+      '.ggp-code.ggp-copied{background:' + c.accent2 + ';color:' + c.bg + ';border-style:solid;transform:scale(1.04)}' +
       '.ggp-done p{font-family:Courier New,monospace;font-size:11px;opacity:.65;text-transform:uppercase}' +
+      '.ggp-done p.ggp-copied{color:' + c.accent2 + ';opacity:1;font-size:14px;font-weight:bold;animation:ggpNote .3s}' +
+      '@keyframes ggpNote{from{transform:scale(.85)}to{transform:none}}' +
       '.ggp-cd{display:flex;gap:8px;margin:4px 0 16px}' +
       '.ggp-cd div{background:rgba(0,0,0,.35);border:1px solid ' + c.fieldBd + ';padding:8px 0;flex:1;text-align:center}' +
       '.ggp-cd b{display:block;font-family:Arial Black,Arial,sans-serif;font-size:20px;color:' + c.ink + '}' +
@@ -232,7 +235,11 @@
 
     ov.querySelector('.ggp-code').addEventListener('click', function () {
       if (navigator.clipboard) navigator.clipboard.writeText(this.textContent.trim());
-      ov.querySelector('.ggp-note').textContent = 'COPIED · APPLIES AT CHECKOUT';
+      this.classList.add('ggp-copied');
+      var note = ov.querySelector('.ggp-note');
+      note.textContent = '✓ COPIED! PASTE AT CHECKOUT';
+      note.classList.remove('ggp-copied'); void note.offsetWidth; /* 重触发动画 */
+      note.classList.add('ggp-copied');
     });
   }
 })();
