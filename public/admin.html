@@ -135,8 +135,9 @@
 <div class="pane" id="p-sub">
   <div class="stats" id="stats"></div>
   <div style="margin-bottom:12px"><a href="/api/admin/subscribers.csv"><button class="b p">导出 CSV</button></a>
-  <button class="b" onclick="loadSubs()">刷新</button></div>
-  <table id="subTable"><thead><tr><th>邮箱</th><th>手机号</th><th>来源模板</th><th>时间</th></tr></thead><tbody></tbody></table>
+  <button class="b" onclick="loadSubs()">刷新</button>
+  <button class="b" id="syncBtn" onclick="syncShopify()">同步到 Shopify 客户列表</button></div>
+  <table id="subTable"><thead><tr><th>邮箱</th><th>手机号</th><th>来源模板</th><th>时间</th><th>Shopify</th></tr></thead><tbody></tbody></table>
 </div>
 
 <div class="toast" id="toast">已保存 ✓</div>
@@ -257,7 +258,17 @@ async function loadSubs() {
     '<div class="stat"><b>' + rows.filter(r => r.phone).length + '</b><span>留手机号</span></div>' +
     Object.entries(byTpl).map(([k, v]) => '<div class="stat"><b>' + v + '</b><span>' + esc(k) + '</span></div>').join('');
   $('subTable').querySelector('tbody').innerHTML = rows.map(r =>
-    '<tr><td>' + esc(r.email) + '</td><td>' + esc(r.phone) + '</td><td>' + esc(r.template) + '</td><td>' + esc(String(r.created_at).replace('T', ' ').slice(0, 19)) + '</td></tr>').join('');
+    '<tr><td>' + esc(r.email) + '</td><td>' + esc(r.phone) + '</td><td>' + esc(r.template) + '</td><td>' + esc(String(r.created_at).replace('T', ' ').slice(0, 19)) + '</td><td>' + (r.synced ? '<span style="color:var(--acid)">✓ 已同步</span>' : '<span style="opacity:.5">未同步</span>') + '</td></tr>').join('');
+}
+async function syncShopify() {
+  const b = $('syncBtn'); b.disabled = true; b.textContent = '同步中…';
+  try {
+    const r = await fetch('/api/admin/sync-shopify', { method: 'POST' });
+    const j = await r.json();
+    toast(r.ok ? ('同步完成:成功 ' + j.ok + ' / 失败 ' + j.fail) : (j.error || '同步失败'));
+  } catch (e) { toast('同步失败'); }
+  b.disabled = false; b.textContent = '同步到 Shopify 客户列表';
+  loadSubs();
 }
 load();
 </script>

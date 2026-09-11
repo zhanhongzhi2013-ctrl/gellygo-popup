@@ -19,6 +19,12 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const SHOP_DOMAIN = process.env.SHOP_DOMAIN || '';
+/* Shopify Admin API 同步(可选但强烈建议):三个环境变量都配好才启用 */
+const SHOPIFY_STORE = process.env.SHOPIFY_STORE || '';          // 如 dj0k3b-70.myshopify.com
+const SHOPIFY_CLIENT_ID = process.env.SHOPIFY_CLIENT_ID || '';
+const SHOPIFY_CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET || '';
+const SHOPIFY_SYNC = !!(SHOPIFY_STORE && SHOPIFY_CLIENT_ID && SHOPIFY_CLIENT_SECRET);
+const API_VER = '2026-01';
 
 /* ---------------- 默认配置(首次启动写入库) ---------------- */
 const DEFAULT_COLORS = { bg: '#0d0d0d', ink: '#f2efe9', vis: '#c8ff00', visInk: '#0a0a0a', tag: '#0a0a0a', accent: '#0a0a0a', accent2: '#c8ff00', field: '#161616', fieldBd: '#3a3a3a', cta: '#c8ff00', ctaInk: '#0a0a0a' };
@@ -47,6 +53,7 @@ async function initStore() {
     await db.query(`CREATE TABLE IF NOT EXISTS ggp_subscribers (
       id SERIAL PRIMARY KEY, email TEXT NOT NULL, phone TEXT DEFAULT '',
       template TEXT DEFAULT '', created_at TIMESTAMPTZ DEFAULT now())`);
+    await db.query(`ALTER TABLE ggp_subscribers ADD COLUMN IF NOT EXISTS synced BOOLEAN DEFAULT false`);
     const r = await db.query('SELECT data FROM ggp_config WHERE id=1');
     if (!r.rows.length) await db.query('INSERT INTO ggp_config (id, data) VALUES (1, $1)', [JSON.stringify(DEFAULT_CONFIG)]);
     console.log('[store] Postgres ready');
@@ -66,12 +73,80 @@ async function setConfig(cfg) {
   else { mem.config = cfg; memSave(); }
 }
 async function addSubscriber(email, phone, template) {
-  if (db) await db.query('INSERT INTO ggp_subscribers (email, phone, template) VALUES ($1,$2,$3)', [email, phone, template]);
-  else { mem.subscribers.push({ id: mem.subscribers.length + 1, email, phone, template, created_at: new Date().toISOString() }); memSave(); }
+  if (db) { const r = await db.query('INSERT INTO ggp_subscribers (email, phone, template) VALUES ($1,$2,$3) RETURNING id', [email, phone, template]); return r.rows[0].id; }
+  const id = mem.subscribers.length + 1;
+  mem.subscribers.push({ id, email, phone, template, created_at: new Date().toISOString(), synced: false }); memSave();
+  return id;
 }
 async function listSubscribers() {
   if (db) { const r = await db.query('SELECT * FROM ggp_subscribers ORDER BY created_at DESC LIMIT 5000'); return r.rows; }
   return [...mem.subscribers].reverse();
+}
+async function listUnsynced(limit) {
+  if (db) { const r = await db.query('SELECT * FROM ggp_subscribers WHERE synced IS NOT TRUE ORDER BY created_at ASC LIMIT $1', [limit || 200]); return r.rows; }
+  return mem.subscribers.filter(s => !s.synced).slice(0, limit || 200);
+}
+async function markSynced(id) {
+  if (db) await db.query('UPDATE ggp_subscribers SET synced=true WHERE id=$1', [id]);
+  else { const s = mem.subscribers.find(x => x.id === id); if (s) { s.synced = true; memSave(); } }
+}
+
+/* ---------------- Shopify Admin API 同步 ---------------- */
+let shopifyToken = null, shopifyTokenExp = 0;
+async function getShopifyToken() {
+  if (shopifyToken && Date.now() < shopifyTokenExp) return shopifyToken;
+  const r = await fetch(`https://${SHOPIFY_STORE}/admin/oauth/access_token`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ grant_type: 'client_credentials', client_id: SHOPIFY_CLIENT_ID, client_secret: SHOPIFY_CLIENT_SECRET })
+  });
+  if (!r.ok) throw new Error('token ' + r.status + ' ' + (await r.text()).slice(0, 200));
+  const j = await r.json();
+  shopifyToken = j.access_token;
+  shopifyTokenExp = Date.now() + Math.max(60, (j.expires_in || 86400) - 300) * 1000;
+  return shopifyToken;
+}
+async function shopifyGql(query, variables) {
+  const token = await getShopifyToken();
+  const r = await fetch(`https://${SHOPIFY_STORE}/admin/api/${API_VER}/graphql.json`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+    body: JSON.stringify({ query, variables })
+  });
+  const j = await r.json();
+  if (j.errors) throw new Error(JSON.stringify(j.errors).slice(0, 300));
+  return j.data;
+}
+/* 写入/更新客户:已存在→打标签+订阅营销;不存在→创建(手机号非法时自动去掉重试) */
+async function syncToShopify(email, phone, template) {
+  const tags = ['newsletter', 'popup', 'popup-' + (template || 'unknown')];
+  const found = await shopifyGql(
+    'query($q:String!){customers(first:1,query:$q){nodes{id}}}',
+    { q: 'email:' + JSON.stringify(email) }
+  );
+  const existing = found.customers.nodes[0];
+  if (existing) {
+    await shopifyGql('mutation($id:ID!,$tags:[String!]!){tagsAdd(id:$id,tags:$tags){userErrors{message}}}', { id: existing.id, tags });
+    await shopifyGql(
+      'mutation($input:CustomerEmailMarketingConsentUpdateInput!){customerEmailMarketingConsentUpdate(input:$input){userErrors{message}}}',
+      { input: { customerId: existing.id, emailMarketingConsent: { marketingState: 'SUBSCRIBED', marketingOptInLevel: 'SINGLE_OPT_IN' } } }
+    );
+    return 'updated';
+  }
+  const input = { email, tags, emailMarketingConsent: { marketingState: 'SUBSCRIBED', marketingOptInLevel: 'SINGLE_OPT_IN' } };
+  if (phone) input.phone = phone;
+  let res = await shopifyGql('mutation($input:CustomerInput!){customerCreate(input:$input){customer{id}userErrors{field message}}}', { input });
+  let errs = res.customerCreate.userErrors;
+  if (errs.length && phone) { /* 手机号格式不合规:去掉重试 */
+    delete input.phone;
+    res = await shopifyGql('mutation($input:CustomerInput!){customerCreate(input:$input){customer{id}userErrors{field message}}}', { input });
+    errs = res.customerCreate.userErrors;
+  }
+  if (errs.length) throw new Error(errs.map(e => e.message).join('; '));
+  return 'created';
+}
+async function trySync(rowId, email, phone, template) {
+  if (!SHOPIFY_SYNC) return false;
+  try { await syncToShopify(email, phone, template); await markSynced(rowId); return true; }
+  catch (e) { console.warn('[sync] ' + email + ' 失败: ' + e.message); return false; }
 }
 
 /* ---------------- App ---------------- */
@@ -128,8 +203,9 @@ app.post('/api/subscribe', async (req, res) => {
   const template = String(req.body.template || '').slice(0, 50);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).json({ error: 'invalid email' });
   if (phone && !/^\+?[\d\s()-]{7,15}$/.test(phone)) return res.status(400).json({ error: 'invalid phone' });
-  await addSubscriber(email, phone, template);
+  const rowId = await addSubscriber(email, phone, template);
   res.json({ ok: true });
+  trySync(rowId, email, phone, template); /* 后台异步同步到 Shopify,不阻塞响应 */
 });
 
 app.get('/popup.js', (req, res) => {
@@ -167,6 +243,17 @@ app.put('/api/admin/config', adminAuth, async (req, res) => {
   res.json({ ok: true });
 });
 app.get('/api/admin/subscribers', adminAuth, async (req, res) => res.json(await listSubscribers()));
+/* 一键补同步:把所有未同步的订阅者写入 Shopify 客户列表 */
+app.post('/api/admin/sync-shopify', adminAuth, async (req, res) => {
+  if (!SHOPIFY_SYNC) return res.status(400).json({ error: '未配置 SHOPIFY_STORE / SHOPIFY_CLIENT_ID / SHOPIFY_CLIENT_SECRET 环境变量' });
+  const rows = await listUnsynced(200);
+  let ok = 0, fail = 0;
+  for (const r of rows) {
+    if (await trySync(r.id, r.email, r.phone, r.template)) ok++; else fail++;
+    await new Promise(rs => setTimeout(rs, 350)); /* 限速,避免触发 API 频控 */
+  }
+  res.json({ total: rows.length, ok, fail });
+});
 app.get('/api/admin/subscribers.csv', adminAuth, async (req, res) => {
   const rows = await listSubscribers();
   const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
