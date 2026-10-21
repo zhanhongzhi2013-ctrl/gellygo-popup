@@ -63,6 +63,8 @@
       '.ggp-done p{font-family:Courier New,monospace;font-size:11px;opacity:.65;text-transform:uppercase}' +
       '.ggp-done p.ggp-copied{color:' + c.accent2 + ';opacity:1;font-size:14px;font-weight:bold;animation:ggpNote .3s}' +
       '@keyframes ggpNote{from{transform:scale(.85)}to{transform:none}}' +
+      '.ggp-shopnow{display:block;margin:12px auto 8px;max-width:320px;text-decoration:none;text-align:center;padding:15px 24px;font-family:Arial Black,Arial,sans-serif;font-size:14px;letter-spacing:.08em;text-transform:uppercase;background:' + c.cta + ';color:' + c.ctaInk + ';transition:transform .1s}' +
+      '.ggp-shopnow:hover{transform:translateY(-1px)}' +
       '.ggp-cd{display:flex;gap:8px;margin:4px 0 16px}' +
       '.ggp-cd div{background:rgba(0,0,0,.35);border:1px solid ' + c.fieldBd + ';padding:8px 0;flex:1;text-align:center}' +
       '.ggp-cd b{display:block;font-family:Arial Black,Arial,sans-serif;font-size:20px;color:' + c.ink + '}' +
@@ -97,7 +99,9 @@
             (s.collectPhone ? '<input type="tel" name="phone" placeholder="PHONE — OPTIONAL, FOR DROP ALERTS" autocomplete="tel"><div class="ggp-errmsg" data-err="phone">Invalid phone number</div>' : '') +
             '<button type="submit" class="ggp-cta"></button>' +
           '</form>' +
-          '<div class="ggp-done"><div class="ggp-chk">▼▼▼</div><h3>You’re on the list</h3><div class="ggp-code" title="Click to copy"></div><p class="ggp-note">CLICK CODE TO COPY · APPLIES AT CHECKOUT</p></div>' +
+          '<div class="ggp-done"><div class="ggp-chk">▼▼▼</div><h3>You’re on the list</h3><div class="ggp-code" title="Click to copy"></div>' +
+            '<a class="ggp-shopnow" href="#">SHOP NOW — DISCOUNT AUTO-APPLIED</a>' +
+            '<p class="ggp-note">NO CODE NEEDED · OR CLICK CODE ABOVE TO COPY</p></div>' +
           '<button class="ggp-dismiss" type="button"></button>' +
           '<div class="ggp-fine">NO SPAM · UNSUBSCRIBE ANY TIME · ADULT PAYMENT METHOD REQUIRED · AGES 14+</div>' +
         '</div>' +
@@ -114,6 +118,9 @@
     ov.querySelector('.ggp-cta').textContent = t.cta || 'SIGN UP';
     ov.querySelector('.ggp-dismiss').textContent = t.no || 'Not now';
     ov.querySelector('.ggp-code').textContent = t.code || '';
+    /* 折扣链接:访问 /discount/码 后结账自动应用,无需复制粘贴 */
+    var shopBase = (s.shopDomain || '').replace(/\/$/, '') || location.origin;
+    ov.querySelector('.ggp-shopnow').href = shopBase + '/discount/' + encodeURIComponent(t.code || '') + '?redirect=' + encodeURIComponent('/collections/all');
 
     /* 枪形浮标:圆形按钮 + gel blaster 剪影(含合规橙色枪口) + 优惠标签 */
     var teaserOn = s.teaser !== false;
