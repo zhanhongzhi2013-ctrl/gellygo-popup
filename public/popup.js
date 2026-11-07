@@ -10,6 +10,30 @@
 
   var KEY_DISMISS = 'ggp_dismissed_at', KEY_DONE = 'ggp_signed_up';
 
+  /* ── 主页/页面订阅区块增强:订阅成功后显示的优惠码,点击即复制并自动应用到结账 ── */
+  function enhanceNewsletterBlocks() {
+    document.querySelectorAll('.gg-nl-box .ok b').forEach(function (b) {
+      if (b.__ggEnhanced) return;
+      b.__ggEnhanced = 1;
+      var code = b.textContent.trim();
+      if (!code) return;
+      b.style.cursor = 'pointer';
+      b.style.textDecoration = 'underline';
+      b.title = 'Click to apply at checkout';
+      b.addEventListener('click', function () {
+        if (navigator.clipboard) navigator.clipboard.writeText(code);
+        b.textContent = '✓ ' + code;
+        window.location.href = '/discount/' + encodeURIComponent(code) + '?redirect=' + encodeURIComponent('/collections/all');
+      });
+      var tip = document.createElement('div');
+      tip.style.cssText = 'margin-top:8px;font-size:11px;letter-spacing:.06em;font-weight:700;text-transform:uppercase';
+      tip.textContent = '👆 Tap the code — discount auto-applies at checkout';
+      b.parentNode.appendChild(tip);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enhanceNewsletterBlocks);
+  else enhanceNewsletterBlocks();
+
   fetch(API + '/api/config' + (PREVIEW ? '?t=' + encodeURIComponent(PREVIEW) : ''))
     .then(function (r) { return r.json(); })
     .then(init)
@@ -99,9 +123,9 @@
             (s.collectPhone ? '<input type="tel" name="phone" placeholder="PHONE — OPTIONAL, FOR DROP ALERTS" autocomplete="tel"><div class="ggp-errmsg" data-err="phone">Invalid phone number</div>' : '') +
             '<button type="submit" class="ggp-cta"></button>' +
           '</form>' +
-          '<div class="ggp-done"><div class="ggp-chk">▼▼▼</div><h3>You’re on the list</h3><div class="ggp-code" title="Click to copy"></div>' +
+          '<div class="ggp-done"><div class="ggp-chk">▼▼▼</div><h3>You’re on the list</h3><div class="ggp-code" title="Click to apply at checkout"></div>' +
             '<a class="ggp-shopnow" href="#">SHOP NOW — DISCOUNT AUTO-APPLIED</a>' +
-            '<p class="ggp-note">NO CODE NEEDED · OR CLICK CODE ABOVE TO COPY</p></div>' +
+            '<p class="ggp-note">TAP THE CODE OR BUTTON — DISCOUNT APPLIES AT CHECKOUT</p></div>' +
           '<button class="ggp-dismiss" type="button"></button>' +
           '<div class="ggp-fine">NO SPAM · UNSUBSCRIBE ANY TIME · ADULT PAYMENT METHOD REQUIRED · AGES 14+</div>' +
         '</div>' +
@@ -240,13 +264,16 @@
       });
     });
 
+    /* 点击优惠码:复制 + 通过 Shopify 折扣链接自动应用到结账,并跳转继续购物 */
     ov.querySelector('.ggp-code').addEventListener('click', function () {
       if (navigator.clipboard) navigator.clipboard.writeText(this.textContent.trim());
       this.classList.add('ggp-copied');
       var note = ov.querySelector('.ggp-note');
-      note.textContent = '✓ COPIED! PASTE AT CHECKOUT';
+      note.textContent = '✓ APPLIED! TAKING YOU TO THE SHOP…';
       note.classList.remove('ggp-copied'); void note.offsetWidth; /* 重触发动画 */
       note.classList.add('ggp-copied');
+      var url = shopBase + '/discount/' + encodeURIComponent(t.code || '') + '?redirect=' + encodeURIComponent('/collections/all');
+      setTimeout(function () { window.location.href = url; }, 700);
     });
   }
 })();
