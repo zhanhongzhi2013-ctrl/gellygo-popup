@@ -93,7 +93,21 @@
       '.ggp-cd div{background:rgba(0,0,0,.35);border:1px solid ' + c.fieldBd + ';padding:8px 0;flex:1;text-align:center}' +
       '.ggp-cd b{display:block;font-family:Arial Black,Arial,sans-serif;font-size:20px;color:' + c.ink + '}' +
       '.ggp-cd span{font-family:Courier New,monospace;font-size:9px;text-transform:uppercase;opacity:.6}' +
-      '@media(max-width:640px){.ggp{grid-template-columns:1fr;max-width:420px}.ggp-vis{min-height:130px;padding:20px}.ggp-big{font-size:26px}}' +
+      /* 弹窗永不超出屏幕:限高 + 内部滚动(页面滚动已锁,必须自己能滚) */
+      '.ggp{max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}' +
+      '@media(max-width:640px){' +
+        '.ggp-overlay{padding:10px}' +
+        '.ggp{grid-template-columns:1fr;max-width:420px;max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px)}' +
+        '.ggp-vis{min-height:0;padding:16px 18px 14px}.ggp-tag{margin-bottom:8px}.ggp-big{font-size:24px}.ggp-deco{font-size:70px;bottom:-12px}' +
+        '.ggp-body{padding:16px 18px 14px}.ggp-kicker{margin-bottom:6px}.ggp-title{font-size:20px;margin-bottom:6px}' +
+        '.ggp-sub{font-size:12px;line-height:1.45;margin-bottom:12px}' +
+        '.ggp-cd{margin:0 0 10px;gap:6px}.ggp-cd div{padding:5px 0}.ggp-cd b{font-size:16px}' +
+        '.ggp-form{gap:8px}.ggp-form input{padding:11px 12px;font-size:16px}.ggp-cta{padding:12px}' +
+        '.ggp-dismiss{margin-top:8px}.ggp-fine{margin-top:8px;font-size:9px}' +
+        '.ggp-close{top:8px;right:8px;background:rgba(0,0,0,.45);color:#fff;width:32px;height:32px;border-radius:50%;opacity:1;font-size:20px}' +
+      '}' +
+      /* 矮屏(横屏/小手机):隐藏描述,进一步收紧 */
+      '@media(max-width:640px) and (max-height:640px){.ggp-sub{display:none}.ggp-vis{padding:12px 18px 10px}.ggp-big{font-size:20px}}' +
       /* 枪形浮标(点击重新打开弹窗) */
       '.ggp-teaser{position:fixed;left:16px;bottom:16px;z-index:2147482999;display:none;align-items:center;gap:0;cursor:pointer;font-family:Arial Black,Arial,sans-serif;filter:drop-shadow(0 6px 18px rgba(0,0,0,.45));transition:transform .15s}' +
       '.ggp-teaser:hover{transform:translateY(-2px)}' +
